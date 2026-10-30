@@ -1,0 +1,1364 @@
+<title>Quiniela Progol</title>
+<meta charset="utf-8">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: boleto tabular. Cada partido es una fila con las tres columnas fijas L-E-V;
+   el estudio del partido se abre debajo de la fila que tocas. Tres vistas:
+   boleto, analisis de la jornada y tablas de liga. */
+:root{
+  --fondo:#eceeec;
+  --papel:#ffffff;
+  --papel2:#f5f7f5;
+  --tinta:#151d1a;
+  --suave:#5c6b65;
+  --linea:#d2dad6;
+  --local:#0d7a4e;
+  --empate:#a86a12;
+  --visita:#1d5e92;
+  --marca:#0d7a4e;
+  --sombra:0 1px 2px rgba(21,29,26,.06), 0 8px 24px -16px rgba(21,29,26,.25);
+  --display:"Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+  --texto:"Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#0e1412; --papel:#161f1c; --papel2:#1c2724; --tinta:#e7efea;
+    --suave:#93a49d; --linea:#2b3833;
+    --local:#3ccb8d; --empate:#e5ab4d; --visita:#64aee8; --marca:#3ccb8d;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#0e1412; --papel:#161f1c; --papel2:#1c2724; --tinta:#e7efea;
+  --suave:#93a49d; --linea:#2b3833;
+  --local:#3ccb8d; --empate:#e5ab4d; --visita:#64aee8; --marca:#3ccb8d;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.8);
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--fondo); color:var(--tinta);
+  font-family:var(--texto); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--papel)}
+.ancho{
+  max-width:1060px; margin:0 auto;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+h1,h2,h3{font-family:var(--display); font-weight:700; margin:0; text-wrap:balance; letter-spacing:.01em}
+.num,.pct,.mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+button,select,input{font-family:inherit; font-size:inherit; color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--marca); outline-offset:2px; border-radius:3px}
+
+/* cabecera */
+header.tope{background:var(--papel); border-bottom:1px solid var(--linea)}
+header.tope .ancho{padding-block:18px 0}
+.titulo{display:flex; flex-wrap:wrap; gap:14px 24px; align-items:flex-end; justify-content:space-between}
+.marca-txt h1{font-size:34px; line-height:.98; text-transform:uppercase}
+.marca-txt h1 span{color:var(--marca)}
+.marca-txt p{margin:4px 0 0; color:var(--suave); font-size:13.5px; max-width:46ch}
+.sello{
+  font-size:12px; color:var(--suave); text-align:right; line-height:1.45;
+  border-left:2px solid var(--linea); padding-left:12px;
+}
+.sello b{color:var(--tinta); font-family:var(--mono); font-weight:500}
+nav.vistas{display:flex; gap:2px; margin-top:14px}
+nav.vistas button{
+  background:none; border:0; border-bottom:2px solid transparent; padding:8px 14px 9px;
+  font-family:var(--display); font-size:16px; font-weight:600; letter-spacing:.04em;
+  text-transform:uppercase; color:var(--suave);
+}
+nav.vistas button[aria-selected="true"]{color:var(--marca); border-bottom-color:var(--marca)}
+nav.vistas button:hover{color:var(--tinta)}
+
+/* tiles */
+.resumen{position:sticky; top:env(safe-area-inset-top,0px); z-index:9; background:var(--papel2); border-bottom:1px solid var(--linea)}
+.resumen .ancho{padding-block:12px; display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+.tile{background:var(--papel); border:1px solid var(--linea); border-radius:6px; padding:9px 11px; min-width:0}
+.tile .et{display:block; font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--suave); font-weight:600}
+.tile .va{display:block; font-family:var(--mono); font-size:21px; font-weight:600; line-height:1.25; margin-top:1px}
+.tile .de{display:block; font-size:11.5px; color:var(--suave)}
+
+/* herramientas */
+.herramientas .ancho{padding-block:16px 10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.btn{
+  background:var(--papel); border:1px solid var(--linea); border-radius:5px;
+  padding:7px 12px; font-size:13.5px; font-weight:500; box-shadow:var(--sombra);
+}
+.btn:hover{border-color:var(--marca); color:var(--marca)}
+.btn.fuerte{background:var(--marca); border-color:var(--marca); color:#fff; box-shadow:none}
+:root[data-theme="dark"] .btn.fuerte, :root:not([data-theme="light"]) .btn.fuerte{color:#0b1512}
+.btn.fuerte:hover{filter:brightness(1.07); color:#fff}
+:root[data-theme="dark"] .btn.fuerte:hover{color:#0b1512}
+.interruptor{display:flex; align-items:center; gap:7px; font-size:13px; color:var(--suave)}
+.interruptor input{accent-color:var(--marca); width:16px; height:16px}
+.derecha{margin-left:auto}
+select.sel{background:var(--papel); border:1px solid var(--linea); border-radius:5px; padding:6.5px 8px; max-width:100%}
+.aviso{font-size:12.5px; color:var(--suave); padding-block:0 4px}
+
+/* boleto */
+.boleto .ancho{padding-block:4px 10px}
+.cabtabla{
+  display:grid; grid-template-columns:30px minmax(0,1fr) 150px 70px;
+  gap:10px; align-items:end; padding:0 11px 6px;
+  font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--suave); font-weight:600;
+}
+.cabtabla .tri{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; text-align:center}
+ol.filas{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px}
+li.fila{background:var(--papel); border:1px solid var(--linea); border-radius:6px; overflow:hidden}
+li.fila.abierta{border-color:var(--marca)}
+.corte{
+  display:flex; align-items:center; gap:10px; margin:12px 2px 6px;
+  font-family:var(--display); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--suave);
+}
+.corte::after{content:""; flex:1; height:1px; background:var(--linea)}
+.cab{
+  width:100%; background:none; border:0; text-align:left; padding:9px 11px;
+  display:grid; grid-template-columns:30px minmax(0,1fr) 150px 70px; gap:10px; align-items:center;
+}
+.cab:hover{background:var(--papel2)}
+.idx{font-family:var(--mono); font-size:13px; color:var(--suave); font-weight:500}
+.par{min-width:0}
+.par .eq{font-family:var(--display); font-size:17.5px; font-weight:600; line-height:1.15; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.par .liga{font-size:11.5px; color:var(--suave); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.par .liga .ej{color:var(--empate); font-weight:600}
+.tri{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
+.celda{text-align:center}
+.celda .pct{display:block; font-size:12.5px; font-weight:500; line-height:1.3}
+.celda .barra{height:5px; border-radius:3px; background:var(--linea); overflow:hidden}
+.celda .barra i{display:block; height:100%; border-radius:3px}
+.celda.l .barra i{background:var(--local)} .celda.e .barra i{background:var(--empate)} .celda.v .barra i{background:var(--visita)}
+.celda.gana .pct{font-weight:600}
+.celda.l.gana .pct{color:var(--local)} .celda.e.gana .pct{color:var(--empate)} .celda.v.gana .pct{color:var(--visita)}
+.sello-pick{
+  display:flex; align-items:center; justify-content:center; gap:2px;
+  font-family:var(--display); font-size:19px; font-weight:700; line-height:1;
+  border:1.5px solid var(--linea); border-radius:5px; padding:5px 2px; color:var(--suave);
+}
+.sello-pick .m{padding:0 1px}
+.sello-pick .m.L{color:var(--local)} .sello-pick .m.E{color:var(--empate)} .sello-pick .m.V{color:var(--visita)}
+.sello-pick.t1{border-color:currentColor}
+.sello-pick.t2, .sello-pick.t3{font-size:15px}
+.vacia .par .eq{color:var(--suave); font-weight:500}
+
+/* detalle */
+.detalle{border-top:1px solid var(--linea); background:var(--papel2); padding:14px 11px 16px; display:grid; gap:14px}
+.editor{display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end}
+.editor label{font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--suave); font-weight:600; display:block; margin-bottom:3px}
+.editor .campo{min-width:0}
+.editor .campo.ancho-eq{flex:1 1 180px}
+.rejilla{display:grid; grid-template-columns:repeat(auto-fit,minmax(248px,1fr)); gap:12px}
+.caja{background:var(--papel); border:1px solid var(--linea); border-radius:6px; padding:11px 12px; min-width:0}
+.caja h3{font-size:12px; letter-spacing:.09em; text-transform:uppercase; color:var(--suave); font-weight:600; margin-bottom:8px}
+.caja h3.sep{margin-top:12px}
+table.datos{width:100%; border-collapse:collapse; font-size:13px}
+table.datos th, table.datos td{padding:3px 0; text-align:right; white-space:nowrap}
+table.datos th:first-child, table.datos td:first-child{text-align:left; white-space:normal}
+table.datos td.n, table.datos th.n{font-family:var(--mono); font-variant-numeric:tabular-nums}
+table.datos tr+tr th, table.datos tr+tr td{border-top:1px solid var(--linea)}
+table.datos th{font-weight:500; color:var(--suave); font-size:12.5px}
+table.datos tr.yo th, table.datos tr.yo td{font-weight:600}
+table.datos tr.yo th:first-child{color:var(--marca)}
+.form{display:flex; gap:4px; flex-wrap:wrap}
+.form span{
+  font-family:var(--mono); font-size:11px; font-weight:600; min-width:28px; height:22px;
+  padding:0 3px; display:grid; place-items:center; border-radius:4px; color:#fff;
+}
+:root[data-theme="dark"] .form span, :root:not([data-theme="light"]) .form span{color:#0b1512}
+.form .g{background:var(--local)} .form .e{background:var(--empate)} .form .p{background:var(--visita)}
+.marcadores{display:grid; gap:5px}
+.marcador{display:grid; grid-template-columns:52px minmax(0,1fr) 46px; gap:8px; align-items:center; font-size:13px}
+.marcador .mm{font-family:var(--mono); font-weight:500}
+.marcador .mb{height:7px; background:var(--linea); border-radius:4px; overflow:hidden}
+.marcador .mb i{display:block; height:100%; background:var(--marca); border-radius:4px}
+.marcador .mp{font-family:var(--mono); font-size:12px; color:var(--suave); text-align:right}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chip{font-size:12px; background:var(--papel2); border:1px solid var(--linea); border-radius:20px; padding:3px 9px}
+.chip b{font-family:var(--mono); font-weight:600}
+.nota{font-size:12px; color:var(--suave); margin:0}
+.acciones-fila{display:flex; gap:8px; flex-wrap:wrap}
+.h2h{display:grid; gap:4px; font-size:13px}
+.h2h .r{display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:8px; align-items:baseline}
+.h2h .r .f{font-family:var(--mono); font-size:11.5px; color:var(--suave)}
+.h2h .r .m{font-family:var(--mono); font-weight:600}
+.barra-dual{display:flex; height:9px; border-radius:5px; overflow:hidden; margin:7px 0 4px; background:var(--linea)}
+.barra-dual i{display:block; height:100%}
+.barra-dual .bl{background:var(--local)} .barra-dual .be{background:var(--empate)} .barra-dual .bv{background:var(--visita)}
+
+/* analisis */
+.tablawrap{overflow-x:auto; border:1px solid var(--linea); border-radius:6px; background:var(--papel)}
+table.jornada{width:100%; border-collapse:collapse; font-size:13px; min-width:760px}
+table.jornada th, table.jornada td{padding:7px 8px; text-align:center; white-space:nowrap; border-top:1px solid var(--linea)}
+table.jornada thead th{
+  border-top:0; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--suave); font-weight:600; background:var(--papel2); position:sticky; top:0;
+}
+table.jornada td.izq, table.jornada th.izq{text-align:left}
+table.jornada td.n{font-family:var(--mono); font-variant-numeric:tabular-nums}
+table.jornada tbody tr:hover{background:var(--papel2)}
+table.jornada .eqs{font-family:var(--display); font-size:15.5px; font-weight:600}
+table.jornada .liga-mini{font-size:11px; color:var(--suave)}
+td.gl{color:var(--local); font-weight:600} td.ge{color:var(--empate); font-weight:600} td.gv{color:var(--visita); font-weight:600}
+.etq{font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; border-radius:3px; padding:2px 6px; border:1px solid currentColor}
+.etq.fija{color:var(--local)} .etq.doble{color:var(--empate)} .etq.triple{color:var(--visita)} .etq.normal{color:var(--suave)}
+.mini-form{display:flex; gap:2px; justify-content:center}
+.mini-form i{width:14px; height:14px; border-radius:3px; display:block}
+.mini-form i.g{background:var(--local)} .mini-form i.e{background:var(--empate)} .mini-form i.p{background:var(--visita)}
+select.tipo{background:var(--papel); border:1px solid var(--linea); border-radius:4px; padding:3px 4px; font-size:12px}
+
+/* ligas */
+table.posiciones{width:100%; border-collapse:collapse; font-size:13px; min-width:720px}
+table.posiciones th, table.posiciones td{padding:6px 7px; text-align:right; white-space:nowrap; border-top:1px solid var(--linea)}
+table.posiciones thead th{border-top:0; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--suave); font-weight:600; background:var(--papel2)}
+table.posiciones td.izq, table.posiciones th.izq{text-align:left}
+table.posiciones td.n{font-family:var(--mono); font-variant-numeric:tabular-nums}
+table.posiciones .pos{font-family:var(--mono); color:var(--suave)}
+table.posiciones .eq{font-family:var(--display); font-size:15.5px; font-weight:600}
+table.posiciones tbody tr:hover{background:var(--papel2)}
+
+/* metodologia */
+.metodo{border-top:1px solid var(--linea); background:var(--papel); margin-top:26px}
+.metodo .ancho{padding-block:24px 34px; display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.metodo h2{font-size:20px; text-transform:uppercase; grid-column:1/-1}
+.metodo h3{font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--marca); margin-bottom:5px}
+.metodo p{margin:0 0 8px; font-size:13.5px; color:var(--suave)}
+.metodo code{font-family:var(--mono); font-size:12.5px; background:var(--papel2); border:1px solid var(--linea); border-radius:4px; padding:1px 4px; color:var(--tinta)}
+.cargando{padding:60px 0; text-align:center; color:var(--suave)}
+
+@media (max-width:720px){
+  .resumen .ancho{grid-template-columns:repeat(2,1fr)}
+  .cabtabla{display:none}
+  .cab{grid-template-columns:24px minmax(0,1fr) 66px; grid-template-areas:"i p s" ". t t"; row-gap:8px}
+  .cab .idx{grid-area:i} .cab .par{grid-area:p} .cab .sello-pick{grid-area:s} .cab .tri{grid-area:t}
+  .marca-txt h1{font-size:28px}
+  .sello{text-align:left; border-left:0; border-top:1px solid var(--linea); padding:8px 0 0}
+  nav.vistas button{padding:8px 10px 9px; font-size:15px}
+}
+</style>
+
+<header class="tope">
+  <div class="ancho">
+    <div class="titulo">
+      <div class="marca-txt">
+        <h1>Quiniela <span>Progol</span></h1>
+        <p>Probabilidad de local, empate y visita con un modelo Poisson sobre resultados reales de 23 ligas.</p>
+      </div>
+      <div class="sello" id="sello">Cargando datos…</div>
+    </div>
+    <nav class="vistas" role="tablist">
+      <button role="tab" id="tab-boleto" aria-selected="true">Boleto</button>
+      <button role="tab" id="tab-analisis" aria-selected="false">Análisis</button>
+      <button role="tab" id="tab-ligas" aria-selected="false">Ligas</button>
+    </nav>
+  </div>
+</header>
+
+<section id="vista-boleto">
+  <div class="resumen">
+    <div class="ancho" id="resumen"></div>
+  </div>
+  <div class="herramientas">
+    <div class="ancho">
+      <button class="btn fuerte" id="btn-jornada">Cargar la jornada</button>
+      <button class="btn" id="btn-proximos">Otros partidos programados</button>
+      <button class="btn" id="btn-agregar">Agregar fila</button>
+      <button class="btn" id="btn-copiar">Copiar quiniela</button>
+      <button class="btn" id="btn-limpiar">Vaciar</button>
+      <label class="interruptor derecha"><input type="checkbox" id="chk-mercado" checked> Mezclar con las cuotas de casas de apuestas</label>
+    </div>
+  </div>
+  <div class="boleto">
+    <div class="ancho">
+      <div class="cabtabla">
+        <span>#</span><span>Partido</span>
+        <span class="tri"><span>Local</span><span>Empate</span><span>Visita</span></span>
+        <span style="text-align:center">Marca</span>
+      </div>
+      <ol class="filas" id="filas"><li class="cargando">Cargando partidos…</li></ol>
+      <p class="aviso" id="aviso"></p>
+    </div>
+  </div>
+</section>
+
+<section id="vista-analisis" hidden>
+  <div class="resumen">
+    <div class="ancho" id="resumen-analisis"></div>
+  </div>
+  <div class="herramientas">
+    <div class="ancho">
+      <label class="interruptor" for="sel-presupuesto">Repartir dobles y triples hasta
+        <select class="sel" id="sel-presupuesto">
+          <option value="1">1 quiniela</option>
+          <option value="2">2 quinielas</option>
+          <option value="4">4 quinielas</option>
+          <option value="8" selected>8 quinielas</option>
+          <option value="16">16 quinielas</option>
+          <option value="32">32 quinielas</option>
+          <option value="64">64 quinielas</option>
+          <option value="128">128 quinielas</option>
+        </select>
+      </label>
+      <button class="btn fuerte" id="btn-repartir">Repartir</button>
+      <button class="btn" id="btn-sencillas">Todo sencillo</button>
+      <span class="nota derecha" id="nota-precio"></span>
+    </div>
+  </div>
+  <div class="boleto">
+    <div class="ancho">
+      <div class="tablawrap"><table class="jornada" id="tabla-jornada"></table></div>
+      <p class="aviso" id="aviso-analisis"></p>
+    </div>
+  </div>
+</section>
+
+<section id="vista-ligas" hidden>
+  <div class="herramientas">
+    <div class="ancho">
+      <label class="interruptor" for="sel-liga">Liga <select class="sel" id="sel-liga"></select></label>
+      <span class="nota derecha" id="nota-liga"></span>
+    </div>
+  </div>
+  <div class="boleto">
+    <div class="ancho">
+      <div class="tablawrap"><table class="posiciones" id="tabla-posiciones"></table></div>
+      <p class="aviso">La tabla se arma con los partidos del dataset, así que no incluye sanciones ni puntos descontados por reglamento. Ataque y defensa son los índices del modelo: 1.00 es el promedio de la liga y en defensa menos es mejor.</p>
+    </div>
+  </div>
+</section>
+
+<section class="metodo">
+  <div class="ancho">
+    <h2>Cómo se calcula</h2>
+    <div>
+      <h3>1. Fuerza de cada equipo</h3>
+      <p>Para cada liga se mide cuántos goles mete y recibe cada equipo comparado con el promedio de su liga. Sale un índice de <b>ataque</b> y uno de <b>defensa</b>: 1.00 es el promedio, 1.30 es 30% mejor que el promedio.</p>
+      <p>Los partidos viejos pesan menos: cada 200 días un partido vale la mitad, así que la forma reciente manda. Los equipos con pocos partidos se jalan hacia el promedio para que una racha corta no infle el número.</p>
+    </div>
+    <div>
+      <h3>2. Goles esperados</h3>
+      <p>Goles del local = <code>promedio de gol en casa de la liga × ataque del local × defensa del visitante</code>. Igual para el visitante con el promedio de visita. De ahí salen los dos números que la página llama <b>goles esperados</b>.</p>
+    </div>
+    <div>
+      <h3>3. Probabilidad de cada marcador</h3>
+      <p>Con la distribución de Poisson se calcula la probabilidad de cada marcador (0-0, 1-0, 2-1…) hasta 8 goles por lado, con la corrección de Dixon-Coles que ajusta los marcadores bajos, donde el Poisson puro se queda corto con los empates. Sumando las casillas sale local, empate y visita.</p>
+    </div>
+    <div>
+      <h3>4. Mezcla con el mercado</h3>
+      <p>Cuando el partido trae cuotas de casas de apuestas, se les quita la comisión y se promedian con el modelo (55% modelo / 45% mercado). El mercado trae información que el histórico no sabe: lesiones, alineaciones, rotación. Puedes apagar la mezcla con el interruptor del boleto.</p>
+    </div>
+    <div>
+      <h3>5. Dobles y triples</h3>
+      <p>En la vista de análisis eliges cuántas quinielas quieres pagar y la página reparte los dobles y triples donde más suben la probabilidad de pegarle a las 14: siempre en los partidos más parejos, nunca en los claros. Cada doble multiplica por 2 el costo, cada triple por 3.</p>
+    </div>
+    <div>
+      <h3>La jornada</h3>
+      <p id="metodo-jornada"></p>
+      <p>El sitio oficial de Pronósticos arma su tabla con JavaScript, así que un script no la puede leer; la jornada se toma de una página que la publica en HTML con sus momios. <b>Compara el boleto contra el oficial antes de pagar</b>: si el orden de los partidos cambia, la marca no te sirve.</p>
+    </div>
+    <div>
+      <h3>Los datos</h3>
+      <p id="metodo-datos"></p>
+      <p>Fuente: <b>football-data.co.uk</b>, resultados históricos y cuotas de cierre. Para refrescarlos antes de llenar la quiniela se corre <code>python quiniela/generar_datos.py</code>.</p>
+    </div>
+    <div>
+      <h3>Lo que el modelo no sabe</h3>
+      <p>No ve lesiones, suspensiones, clima, equipos que rotan por torneo internacional ni motivación de la última jornada. Un 60% de probabilidad pierde 4 de cada 10 veces: ninguna quiniela se gana con certezas, se gana administrando los empates.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  "use strict";
+
+  var VIDA_MEDIA = 200;      // dias: a los 200 dias un partido pesa la mitad
+  var RHO = -0.05;           // correccion Dixon-Coles para marcadores bajos
+  var MAXG = 8;              // goles maximos en la matriz
+  var PESO_MERCADO = 0.45;   // cuanto pesan las cuotas cuando existen
+  var ENCOGE = 5;            // partidos ficticios hacia el promedio
+  var PRECIO = 15;           // pesos por quiniela
+  var LLAVE = "quiniela-progol-v3";
+
+  var D = null;              // datos.json
+  var LIGAS = {};            // id -> liga
+  var AJUSTES = {};          // id -> modelo ajustado
+  var TABLAS = {};           // id|temp -> tabla de posiciones
+  var filas = [];            // partidos del boleto
+  var abierta = -1;
+  var mezclar = true;
+  var vista = "boleto";
+  var ligaVista = "";
+
+  var $ = function(id){ return document.getElementById(id); };
+  var pct = function(p){ return (p*100).toFixed(1) + "%"; };
+  var num = function(x, d){ return x.toFixed(d === undefined ? 2 : d); };
+  var LETRA = ["L", "E", "V"];
+
+  // Nombre a mostrar: el del dataset si lo hay, si no el que trae la quiniela.
+  function nombreLocal(f){ return f.local || f.txtL || ""; }
+  function nombreVisita(f){ return f.visita || f.txtV || ""; }
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+  function fechaCorta(iso){
+    var p = (iso || "").split("-");
+    return p.length === 3 ? p[2] + "/" + p[1] : (iso || "");
+  }
+  function pesos(n){ return "$" + n.toLocaleString("es-MX"); }
+
+  /* ---------- modelo ---------- */
+
+  function ajustar(liga){
+    if (AJUSTES[liga.id]) return AJUSTES[liga.id];
+    var n = liga.equipos.length, hoy = Date.now(), ms = [], i, m;
+
+    for (i = 0; i < liga.partidos.length; i++){
+      var p = liga.partidos[i];
+      var dias = (hoy - Date.parse(p[0] + "T12:00:00Z")) / 86400000;
+      if (dias < -1) continue;
+      var w = Math.pow(0.5, Math.max(dias, 0) / VIDA_MEDIA);
+      if (w < 0.03) continue;
+      ms.push({ h:p[1], a:p[2], gh:p[3], ga:p[4], w:w });
+    }
+
+    var sw = 0, sgh = 0, sga = 0;
+    for (i = 0; i < ms.length; i++){ m = ms[i]; sw += m.w; sgh += m.w*m.gh; sga += m.w*m.ga; }
+    var muH = sw > 0 ? sgh/sw : 1.45, muA = sw > 0 ? sga/sw : 1.15;
+
+    var atk = [], def = [], pj = [];
+    for (i = 0; i < n; i++){ atk.push(1); def.push(1); pj.push(0); }
+    for (i = 0; i < ms.length; i++){ pj[ms[i].h] += ms[i].w; pj[ms[i].a] += ms[i].w; }
+
+    function encoger(cruda, peso){
+      if (!isFinite(cruda) || cruda <= 0) return 1;
+      return (cruda*peso + ENCOGE) / (peso + ENCOGE);
+    }
+    function normalizar(v){
+      var s = 0, t = 0, k;
+      for (k = 0; k < n; k++){ if (pj[k] > 0){ s += pj[k]*Math.log(v[k]); t += pj[k]; } }
+      if (t <= 0) return;
+      var g = Math.exp(s/t);
+      if (!isFinite(g) || g <= 0) return;
+      for (k = 0; k < n; k++) v[k] = v[k]/g;
+    }
+
+    var it, an = [], ad = [];
+    for (it = 0; it < 70; it++){
+      for (i = 0; i < n; i++){ an[i] = 0; ad[i] = 0; }
+      for (i = 0; i < ms.length; i++){
+        m = ms[i];
+        an[m.h] += m.w*m.gh; ad[m.h] += m.w*muH*def[m.a];
+        an[m.a] += m.w*m.ga; ad[m.a] += m.w*muA*def[m.h];
+      }
+      for (i = 0; i < n; i++) if (ad[i] > 0) atk[i] = encoger(an[i]/ad[i], pj[i]);
+      normalizar(atk);
+
+      for (i = 0; i < n; i++){ an[i] = 0; ad[i] = 0; }
+      for (i = 0; i < ms.length; i++){
+        m = ms[i];
+        an[m.h] += m.w*m.ga; ad[m.h] += m.w*muA*atk[m.a];
+        an[m.a] += m.w*m.gh; ad[m.a] += m.w*muH*atk[m.h];
+      }
+      for (i = 0; i < n; i++) if (ad[i] > 0) def[i] = encoger(an[i]/ad[i], pj[i]);
+      normalizar(def);
+    }
+
+    var ultima = "";
+    for (i = 0; i < liga.partidos.length; i++) if (liga.partidos[i][0] > ultima) ultima = liga.partidos[i][0];
+
+    var aj = { atk:atk, def:def, pj:pj, muH:muH, muA:muA, n:ms.length, ultima:ultima, liga:liga };
+    AJUSTES[liga.id] = aj;
+    return aj;
+  }
+
+  function poisson(lam){
+    var v = [], p = Math.exp(-lam), k;
+    for (k = 0; k <= MAXG; k++){ v.push(p); p = p*lam/(k+1); }
+    return v;
+  }
+
+  // Partido del que no tengo histórico (liga que no está en el dataset):
+  // si trae momios, al menos se puede leer lo que dice el mercado.
+  function soloMercado(f){
+    if (!f.cuotas || f.cuotas.length !== 3 || !(f.cuotas[0] > 1)) return null;
+    var inv = [1/f.cuotas[0], 1/f.cuotas[1], 1/f.cuotas[2]];
+    var t = inv[0] + inv[1] + inv[2];
+    var m = [inv[0]/t, inv[1]/t, inv[2]/t];
+    var orden = [0,1,2].sort(function(x,y){ return m[y] - m[x]; });
+    return {
+      soloMercado:true, liga:null, aj:null, iL:-1, iV:-1,
+      modelo:null, mercado:m, final:m, orden:orden,
+      marca:LETRA[orden[0]], mejor:orden[0], margen:m[orden[0]] - m[orden[1]],
+      over:null, btts:null, marcadores:null,
+      doble:[m[0] + m[1], m[0] + m[2], m[1] + m[2]]
+    };
+  }
+
+  function analizar(fila){
+    var liga = LIGAS[fila.liga];
+    if (!liga) return soloMercado(fila);
+    var iL = liga.equipos.indexOf(fila.local), iV = liga.equipos.indexOf(fila.visita);
+    if (iL < 0 || iV < 0 || iL === iV) return soloMercado(fila);
+
+    var aj = ajustar(liga);
+    var lh = Math.min(6, Math.max(0.15, aj.muH*aj.atk[iL]*aj.def[iV]));
+    var lv = Math.min(6, Math.max(0.12, aj.muA*aj.atk[iV]*aj.def[iL]));
+
+    var ph = poisson(lh), pv = poisson(lv), M = [], i, j, s = 0;
+    for (i = 0; i <= MAXG; i++){
+      M.push([]);
+      for (j = 0; j <= MAXG; j++){
+        var q = ph[i]*pv[j];
+        if (i < 2 && j < 2){
+          if (i === 0 && j === 0) q *= 1 - lh*lv*RHO;
+          else if (i === 0 && j === 1) q *= 1 + lh*RHO;
+          else if (i === 1 && j === 0) q *= 1 + lv*RHO;
+          else q *= 1 - RHO;
+        }
+        if (q < 0) q = 0;
+        M[i].push(q); s += q;
+      }
+    }
+    for (i = 0; i <= MAXG; i++) for (j = 0; j <= MAXG; j++) M[i][j] /= s;
+
+    var pL = 0, pE = 0, pV = 0, over = 0, btts = 0, lista = [];
+    for (i = 0; i <= MAXG; i++) for (j = 0; j <= MAXG; j++){
+      var q2 = M[i][j];
+      if (i > j) pL += q2; else if (i === j) pE += q2; else pV += q2;
+      if (i + j > 2.5) over += q2;
+      if (i > 0 && j > 0) btts += q2;
+      lista.push({ m:i + "-" + j, p:q2 });
+    }
+    lista.sort(function(a,b){ return b.p - a.p; });
+
+    var modelo = [pL, pE, pV], mercado = null, final = modelo.slice(), k2;
+    if (fila.cuotas && fila.cuotas.length === 3 && fila.cuotas[0] > 1){
+      var inv = [1/fila.cuotas[0], 1/fila.cuotas[1], 1/fila.cuotas[2]];
+      var ti = inv[0] + inv[1] + inv[2];
+      mercado = [inv[0]/ti, inv[1]/ti, inv[2]/ti];
+      if (mezclar){
+        var t2 = 0;
+        final = [];
+        for (k2 = 0; k2 < 3; k2++){ final.push((1 - PESO_MERCADO)*modelo[k2] + PESO_MERCADO*mercado[k2]); t2 += final[k2]; }
+        for (k2 = 0; k2 < 3; k2++) final[k2] /= t2;
+      }
+    }
+
+    var orden = [0,1,2].sort(function(x,y){ return final[y] - final[x]; });
+
+    return {
+      liga:liga, aj:aj, iL:iL, iV:iV, lh:lh, lv:lv,
+      modelo:modelo, mercado:mercado, final:final, orden:orden,
+      marca:LETRA[orden[0]], mejor:orden[0],
+      margen:final[orden[0]] - final[orden[1]],
+      over:over, btts:btts, marcadores:lista.slice(0, 6),
+      doble:[final[0] + final[1], final[0] + final[2], final[1] + final[2]]
+    };
+  }
+
+  // probabilidad de acertar la fila con las marcas que trae (1, 2 o 3)
+  function pFila(a, tipo){
+    var s = 0, k;
+    for (k = 0; k < (tipo || 1) && k < 3; k++) s += a.final[a.orden[k]];
+    return s;
+  }
+  function marcasDe(a, tipo){
+    var usa = [false,false,false], k, out = [];
+    for (k = 0; k < (tipo || 1) && k < 3; k++) usa[a.orden[k]] = true;
+    for (k = 0; k < 3; k++) if (usa[k]) out.push(LETRA[k]);
+    return out;
+  }
+  function senal(a){
+    if (a.margen >= 0.25 && a.final[a.mejor] >= 0.55) return "fija";
+    if (a.final[a.mejor] < 0.40) return "triple";
+    if (a.margen < 0.10) return "doble";
+    return "normal";
+  }
+
+  /* ---------- estadistica para estudiar ---------- */
+
+  function tablaLiga(liga, tempIdx){
+    var llave = liga.id + "|" + tempIdx;
+    if (TABLAS[llave]) return TABLAS[llave];
+    var n = liga.equipos.length, eq = [], i;
+    for (i = 0; i < n; i++) eq.push({
+      i:i, nombre:liga.equipos[i], pj:0, g:0, e:0, p:0, gf:0, gc:0, pts:0,
+      cpj:0, cg:0, ce:0, cp:0, cgf:0, cgc:0,
+      vpj:0, vg:0, ve:0, vp:0, vgf:0, vgc:0
+    });
+    for (i = 0; i < liga.partidos.length; i++){
+      var m = liga.partidos[i];
+      if (m[5] !== tempIdx) continue;
+      var L = eq[m[1]], V = eq[m[2]], gl = m[3], gv = m[4];
+      L.pj++; V.pj++; L.gf += gl; L.gc += gv; V.gf += gv; V.gc += gl;
+      L.cpj++; L.cgf += gl; L.cgc += gv;
+      V.vpj++; V.vgf += gv; V.vgc += gl;
+      if (gl > gv){ L.g++; L.cg++; L.pts += 3; V.p++; V.vp++; }
+      else if (gl < gv){ V.g++; V.vg++; V.pts += 3; L.p++; L.cp++; }
+      else { L.e++; L.ce++; L.pts++; V.e++; V.ve++; V.pts++; }
+    }
+    var conJuego = eq.filter(function(t){ return t.pj > 0; });
+    conJuego.sort(function(a,b){
+      return b.pts - a.pts || (b.gf - b.gc) - (a.gf - a.gc) || b.gf - a.gf ||
+             a.nombre.localeCompare(b.nombre, "es");
+    });
+    var pos = {};
+    for (i = 0; i < conJuego.length; i++) pos[conJuego[i].i] = i + 1;
+    var r = { filas:conJuego, pos:pos, temporada:liga.temporadas[tempIdx] };
+    TABLAS[llave] = r;
+    return r;
+  }
+
+  function recientes(liga, iEq, cuantos){
+    var i, out = [];
+    for (i = liga.partidos.length - 1; i >= 0 && out.length < cuantos; i--){
+      var p = liga.partidos[i];
+      if (p[1] !== iEq && p[2] !== iEq) continue;
+      var casa = p[1] === iEq;
+      var gf = casa ? p[3] : p[4], gc = casa ? p[4] : p[3];
+      out.push({
+        fecha:p[0], rival:liga.equipos[casa ? p[2] : p[1]], casa:casa,
+        gf:gf, gc:gc, res:gf > gc ? "g" : (gf === gc ? "e" : "p")
+      });
+    }
+    return out;
+  }
+
+  function tendencias(liga, iEq, cuantos){
+    var r = recientes(liga, iEq, cuantos), i, t = {
+      pj:r.length, g:0, e:0, p:0, gf:0, gc:0, over:0, btts:0, cero:0, sinGol:0,
+      racha:"", rachaLargo:0, sinPerder:0
+    };
+    for (i = 0; i < r.length; i++){
+      var m = r[i];
+      t[m.res === "g" ? "g" : (m.res === "e" ? "e" : "p")]++;
+      t.gf += m.gf; t.gc += m.gc;
+      if (m.gf + m.gc > 2.5) t.over++;
+      if (m.gf > 0 && m.gc > 0) t.btts++;
+      if (m.gc === 0) t.cero++;
+      if (m.gf === 0) t.sinGol++;
+    }
+    for (i = 0; i < r.length; i++){
+      if (i === 0){ t.racha = r[0].res; t.rachaLargo = 1; }
+      else if (r[i].res === t.racha) t.rachaLargo++;
+      else break;
+    }
+    for (i = 0; i < r.length; i++){
+      if (r[i].res === "p") break;
+      t.sinPerder++;
+    }
+    return t;
+  }
+
+  function historial(liga, a, b, cuantos){
+    var out = [], i;
+    for (i = liga.partidos.length - 1; i >= 0 && out.length < cuantos; i--){
+      var p = liga.partidos[i];
+      if ((p[1] === a && p[2] === b) || (p[1] === b && p[2] === a)) out.push(p);
+    }
+    return out;
+  }
+
+  /* ---------- boleto ---------- */
+
+  function filaVacia(){ return { liga:"", local:"", visita:"", cuotas:null, tipo:1 }; }
+
+  function tile(et, va, de){
+    return '<div class="tile"><span class="et">' + et + '</span><span class="va">' + va +
+           '</span><span class="de">' + de + '</span></div>';
+  }
+
+  function hayRevanchas(){
+    for (var i = 0; i < filas.length; i++) if (filas[i].revancha) return true;
+    return false;
+  }
+
+  // Las cuentas son del Progol (los 14). La revancha es concurso aparte.
+  function cuentas(){
+    var listos = [], i, comb = 1, esperados = 0, todas = 1, rev = hayRevanchas();
+    for (i = 0; i < filas.length; i++){
+      if (rev && filas[i].revancha) continue;
+      var a = analizar(filas[i]);
+      if (!a) continue;
+      var tipo = filas[i].tipo || 1;
+      listos.push({ a:a, tipo:tipo, i:i });
+      comb *= tipo;
+      var p = pFila(a, tipo);
+      esperados += p; todas *= p;
+    }
+    if (!listos.length) todas = 0;
+    return { listos:listos, comb:comb, esperados:esperados, todas:todas };
+  }
+
+  function textoProb(p){
+    if (!p) return "—";
+    var x = p*100;
+    if (x >= 1) return num(x,1) + "%";
+    if (x >= 0.001) return num(x,4) + "%";
+    return "1 en " + Math.round(1/p).toLocaleString("es-MX");
+  }
+
+  function pintarResumen(){
+    var c = cuentas();
+    $("resumen").innerHTML =
+      tile("Aciertos esperados", c.listos.length ? num(c.esperados,1) : "—", "de " + c.listos.length + " partidos") +
+      tile("Pegarle a todas", textoProb(c.todas), c.comb > 1 ? "con " + c.comb + " quinielas" : "con una quiniela") +
+      tile("Quinielas", String(c.comb), "dobles y triples incluidos") +
+      tile("Costo", pesos(c.comb*PRECIO), "a " + pesos(PRECIO) + " cada una");
+
+    var cerrados = c.listos.slice().sort(function(x,y){ return x.a.margen - y.a.margen; }).slice(0,3);
+    var nombres = [], i;
+    for (i = 0; i < cerrados.length; i++){
+      var f = filas[cerrados[i].i];
+      nombres.push(nombreLocal(f) + " vs " + nombreVisita(f) + " (" + marcasDe(cerrados[i].a, 2).join("/") + ")");
+    }
+    $("aviso").textContent = (nombres.length
+      ? "Partidos más parejos, los candidatos a jugar doble: " + nombres.join(" · ") + ". "
+      : "") + (hayRevanchas()
+      ? "Las 7 revanchas son concurso aparte: sus marcas están abajo, pero no entran en estas cuentas."
+      : "");
+  }
+
+  function pintarFilas(){
+    var cont = $("filas"), html = "", i;
+    for (i = 0; i < filas.length; i++){
+      if (i === 14) html += '<li><div class="corte">Revanchas</div></li>';
+      html += pintarFila(i);
+    }
+    cont.innerHTML = html;
+    for (i = 0; i < filas.length; i++) conectar(i);
+  }
+
+  function pintarFila(i){
+    var f = filas[i], a = analizar(f), titulo, sub, tri, sello;
+
+    if (a){
+      titulo = esc(nombreLocal(f)) + ' <em style="font-family:var(--texto);font-size:12px;font-weight:400;color:var(--suave)">vs</em> ' + esc(nombreVisita(f));
+      sub = (a.liga ? esc(a.liga.nombre) + " · " + esc(a.liga.pais)
+                    : '<span class="ej">sin histórico, solo momios</span>') +
+            (f.fecha ? " · " + fechaCorta(f.fecha) + (f.hora ? " " + f.hora : "") : "") +
+            (f.revancha ? " · revancha" : "") +
+            (f.ejemplo ? ' · <span class="ej">ejemplo</span>' : "");
+      tri = celda("l", a.final[0], a.orden[0] === 0) + celda("e", a.final[1], a.orden[0] === 1) + celda("v", a.final[2], a.orden[0] === 2);
+      var ms = marcasDe(a, f.tipo || 1), k, mh = "";
+      for (k = 0; k < ms.length; k++) mh += '<span class="m ' + ms[k] + '">' + ms[k] + "</span>";
+      sello = '<span class="sello-pick t' + (f.tipo || 1) + '">' + mh + "</span>";
+    } else {
+      titulo = "Elige los equipos";
+      sub = "toca la fila para escoger liga y equipos";
+      tri = celda("l", 0, false) + celda("e", 0, false) + celda("v", 0, false);
+      sello = '<span class="sello-pick t1">·</span>';
+    }
+
+    return '<li class="fila' + (abierta === i ? " abierta" : "") + (a ? "" : " vacia") + '" data-i="' + i + '">' +
+      '<button class="cab" data-act="abrir" aria-expanded="' + (abierta === i) + '">' +
+        '<span class="idx">' + (i + 1) + "</span>" +
+        '<span class="par"><span class="eq">' + titulo + '</span><span class="liga">' + sub + "</span></span>" +
+        '<span class="tri">' + tri + "</span>" + sello +
+      "</button>" +
+      (abierta === i ? '<div class="detalle">' + pintarDetalle(i, a) + "</div>" : "") +
+    "</li>";
+  }
+
+  function celda(cl, p, gana){
+    return '<span class="celda ' + cl + (gana ? " gana" : "") + '">' +
+      '<span class="pct">' + (p ? pct(p) : "—") + "</span>" +
+      '<span class="barra"><i style="width:' + (p*100).toFixed(1) + '%"></i></span></span>';
+  }
+
+  function chip(et, va){ return '<span class="chip">' + et + " <b>" + va + "</b></span>"; }
+  function tds(v){ return "<td class='n'>" + pct(v[0]) + "</td><td class='n'>" + pct(v[1]) + "</td><td class='n'>" + pct(v[2]) + "</td>"; }
+
+  function pintarDetalle(i, a){
+    var f = filas[i], h = "", k;
+
+    var ligasOrden = D.ligas.slice().sort(function(x,y){
+      return (x.pais + x.nombre).localeCompare(y.pais + y.nombre, "es");
+    });
+    var optL = '<option value="">— liga —</option>';
+    for (k = 0; k < ligasOrden.length; k++){
+      var L = ligasOrden[k];
+      optL += '<option value="' + L.id + '"' + (L.id === f.liga ? " selected" : "") + ">" +
+              esc(L.pais + " · " + L.nombre) + "</option>";
+    }
+    var equipos = LIGAS[f.liga] ? LIGAS[f.liga].equipos.slice().sort(function(x,y){ return x.localeCompare(y,"es"); }) : [];
+    function optE(sel){
+      var o = '<option value="">— equipo —</option>', j;
+      for (j = 0; j < equipos.length; j++) o += '<option value="' + esc(equipos[j]) + '"' + (equipos[j] === sel ? " selected" : "") + ">" + esc(equipos[j]) + "</option>";
+      return o;
+    }
+    var tipoSel = "";
+    for (k = 1; k <= 3; k++) tipoSel += '<option value="' + k + '"' + ((f.tipo || 1) === k ? " selected" : "") + ">" +
+      ["", "Sencillo", "Doble", "Triple"][k] + "</option>";
+
+    h += '<div class="editor">' +
+      '<div class="campo"><label for="sl-' + i + '">Liga</label><select class="sel" id="sl-' + i + '" data-act="liga">' + optL + "</select></div>" +
+      '<div class="campo ancho-eq"><label for="sh-' + i + '">Local</label><select class="sel" id="sh-' + i + '" data-act="local">' + optE(f.local) + "</select></div>" +
+      '<div class="campo ancho-eq"><label for="sa-' + i + '">Visitante</label><select class="sel" id="sa-' + i + '" data-act="visita">' + optE(f.visita) + "</select></div>" +
+      '<div class="campo"><label for="st-' + i + '">Marca</label><select class="sel" id="st-' + i + '" data-act="tipo">' + tipoSel + "</select></div>" +
+      '<div class="campo"><div class="acciones-fila">' +
+        '<button class="btn" data-act="voltear">Invertir</button>' +
+        '<button class="btn" data-act="borrar">Quitar</button>' +
+      "</div></div></div>";
+
+    if (!a){
+      h += '<p class="nota">Escoge liga, local y visitante para ver las probabilidades.</p>';
+      return h;
+    }
+
+    if (a.soloMercado){
+      h += '<div class="rejilla"><div class="caja">' +
+        "<h3>" + esc(nombreLocal(f)) + " vs " + esc(nombreVisita(f)) + "</h3>" +
+        '<table class="datos"><tr><th></th><th class="n">L</th><th class="n">E</th><th class="n">V</th></tr>' +
+        "<tr class='yo'><th>Momios de la quiniela</th>" + tds(a.mercado) + "</tr></table>" +
+        '<h3 class="sep">Doble oportunidad</h3><div class="chips">' +
+          chip("Local o empate (1X)", pct(a.doble[0])) +
+          chip("Visita o empate (X2)", pct(a.doble[2])) +
+          chip("Gana alguno (12)", pct(a.doble[1])) + "</div>" +
+        '<p class="nota" style="margin-top:9px">De esta liga no tengo histórico en el dataset ' +
+        "(football-data.co.uk no publica resultados de ella), así que estos porcentajes salen " +
+        "solo de los momios, sin modelo. Cuotas: " + f.cuotas.map(function(c){ return num(c); }).join(" / ") + ".</p>" +
+        "</div></div>";
+      return h;
+    }
+
+    var liga = a.liga, nomL = liga.equipos[a.iL], nomV = liga.equipos[a.iV];
+    var tempIdx = liga.temporadas.length - 1;
+    var tb = tablaLiga(liga, tempIdx);
+    var dias = Math.round((Date.now() - Date.parse(a.aj.ultima + "T12:00:00Z")) / 86400000);
+
+    h += '<div class="rejilla">';
+
+    /* 1. goles esperados e indices */
+    h += '<div class="caja"><h3>Goles esperados</h3><table class="datos">' +
+      "<tr><th>" + esc(nomL) + " (casa)</th><td class='n'>" + num(a.lh) + "</td></tr>" +
+      "<tr><th>" + esc(nomV) + " (visita)</th><td class='n'>" + num(a.lv) + "</td></tr>" +
+      "<tr><th>Total del partido</th><td class='n'>" + num(a.lh + a.lv) + "</td></tr>" +
+      "</table>" +
+      '<h3 class="sep">Índices del modelo</h3><table class="datos">' +
+      "<tr><th></th><th class='n'>Ataque</th><th class='n'>Defensa</th></tr>" +
+      "<tr><th>" + esc(nomL) + "</th><td class='n'>" + num(a.aj.atk[a.iL]) + "</td><td class='n'>" + num(a.aj.def[a.iL]) + "</td></tr>" +
+      "<tr><th>" + esc(nomV) + "</th><td class='n'>" + num(a.aj.atk[a.iV]) + "</td><td class='n'>" + num(a.aj.def[a.iV]) + "</td></tr>" +
+      "</table>" +
+      '<p class="nota" style="margin-top:8px">1.00 = promedio de la liga; en defensa menos es mejor. ' +
+      "Promedio de gol en " + esc(liga.nombre) + ": " + num(a.aj.muH) + " en casa, " + num(a.aj.muA) + " de visita.</p>" +
+      "</div>";
+
+    /* 2. tabla de posiciones de los dos */
+    h += '<div class="caja"><h3>En la tabla · ' + esc(tb.temporada) + "</h3>" + miniTabla(tb, a.iL, a.iV) + "</div>";
+
+    /* 3. casa y visita */
+    h += '<div class="caja"><h3>Cómo les va según dónde juegan</h3>' +
+      splitCasa(tb, a.iL, true, nomL) + splitCasa(tb, a.iV, false, nomV) +
+      '<p class="nota">El local se mide solo de local y el visitante solo de visitante, que es como van a jugar este partido.</p></div>';
+
+    /* 4. marcadores y apuestas */
+    var mk = "", mx = a.marcadores[0].p;
+    for (k = 0; k < a.marcadores.length; k++){
+      var mm = a.marcadores[k];
+      mk += '<div class="marcador"><span class="mm">' + mm.m + "</span>" +
+            '<span class="mb"><i style="width:' + (mm.p/mx*100).toFixed(1) + '%"></i></span>' +
+            '<span class="mp">' + pct(mm.p) + "</span></div>";
+    }
+    h += '<div class="caja"><h3>Marcadores más probables</h3><div class="marcadores">' + mk + "</div>" +
+      '<h3 class="sep">Otras apuestas</h3><div class="chips">' +
+      chip("Más de 2.5 goles", pct(a.over)) + chip("Menos de 2.5", pct(1 - a.over)) +
+      chip("Ambos anotan", pct(a.btts)) + chip("Local o empate (1X)", pct(a.doble[0])) +
+      chip("Visita o empate (X2)", pct(a.doble[2])) + chip("Gana alguno (12)", pct(a.doble[1])) +
+      "</div></div>";
+
+    /* 5. modelo vs mercado */
+    h += '<div class="caja"><h3>Modelo contra mercado</h3><table class="datos">' +
+      "<tr><th></th><th class='n'>L</th><th class='n'>E</th><th class='n'>V</th></tr>" +
+      "<tr><th>Modelo</th>" + tds(a.modelo) + "</tr>" +
+      (a.mercado ? "<tr><th>Casas de apuestas</th>" + tds(a.mercado) + "</tr>" : "") +
+      (a.mercado && mezclar ? "<tr class='yo'><th>Mezcla usada</th>" + tds(a.final) + "</tr>" : "") +
+      "</table>";
+    if (a.mercado){
+      var dif = a.modelo[a.mejor] - a.mercado[a.mejor];
+      h += '<p class="nota" style="margin-top:8px">' +
+        (Math.abs(dif) < 0.03
+          ? "El modelo y el mercado coinciden en este partido."
+          : "El modelo ve la marca <b>" + a.marca + "</b> " + (dif > 0 ? "más" : "menos") +
+            " probable que el mercado, por " + num(Math.abs(dif)*100, 1) + " puntos.") +
+        " Cuotas: " + f.cuotas.map(function(c){ return num(c); }).join(" / ") + ".</p>";
+    } else {
+      h += '<p class="nota" style="margin-top:8px">Este partido no trae cuotas, así que la marca sale del modelo solo.</p>';
+    }
+    h += "</div>";
+
+    /* 6. forma y rachas */
+    h += '<div class="caja"><h3>Últimos partidos</h3>' +
+      bloqueForma(liga, a.iL, nomL) + bloqueForma(liga, a.iV, nomV) +
+      '<p class="nota">' + esc(liga.nombre) + ": " + liga.partidos.length +
+      " partidos en el dataset, el último hace " + dias + " día" + (dias === 1 ? "" : "s") + "." +
+      (dias > 45 ? " <b>Datos viejos: la liga está en receso, tómalo con reserva.</b>" : "") + "</p></div>";
+
+    /* 7. historial entre ellos */
+    h += '<div class="caja"><h3>Entre ellos</h3>' + bloqueH2H(liga, a.iL, a.iV, nomL, nomV) + "</div>";
+
+    h += "</div>";
+    return h;
+  }
+
+  function miniTabla(tb, iL, iV){
+    var fila = function(t){
+      if (!t) return "";
+      return "<tr" + ' class="yo"' + "><th>" + tb.pos[t.i] + ". " + esc(t.nombre) + "</th>" +
+        "<td class='n'>" + t.pj + "</td><td class='n'>" + t.g + "-" + t.e + "-" + t.p + "</td>" +
+        "<td class='n'>" + t.gf + ":" + t.gc + "</td><td class='n'>" + t.pts + "</td></tr>";
+    };
+    var bL = null, bV = null, i;
+    for (i = 0; i < tb.filas.length; i++){
+      if (tb.filas[i].i === iL) bL = tb.filas[i];
+      if (tb.filas[i].i === iV) bV = tb.filas[i];
+    }
+    if (!bL && !bV) return '<p class="nota">Todavía no hay partidos de esta temporada en el dataset.</p>';
+    return '<table class="datos"><tr><th></th><th class="n">PJ</th><th class="n">G-E-P</th><th class="n">GF:GC</th><th class="n">PTS</th></tr>' +
+      fila(bL) + fila(bV) + "</table>" +
+      '<p class="nota" style="margin-top:7px">De ' + tb.filas.length + " equipos con juegos en la temporada.</p>";
+  }
+
+  function splitCasa(tb, iEq, comoLocal, nombre){
+    var t = null, i;
+    for (i = 0; i < tb.filas.length; i++) if (tb.filas[i].i === iEq) t = tb.filas[i];
+    if (!t) return "";
+    var pj = comoLocal ? t.cpj : t.vpj;
+    if (!pj) return '<div style="margin-bottom:9px"><b>' + esc(nombre) + "</b> " +
+      '<span class="nota">sin partidos ' + (comoLocal ? "de local" : "de visitante") + " esta temporada</span></div>";
+    var g = comoLocal ? t.cg : t.vg, e = comoLocal ? t.ce : t.ve, p = comoLocal ? t.cp : t.vp;
+    var gf = comoLocal ? t.cgf : t.vgf, gc = comoLocal ? t.cgc : t.vgc;
+    return '<div style="margin-bottom:11px">' +
+      '<div style="font-family:var(--display);font-size:15px;font-weight:600">' + esc(nombre) +
+      ' <span class="nota">· ' + (comoLocal ? "de local" : "de visitante") + "</span></div>" +
+      '<div class="barra-dual">' +
+        '<i class="bl" style="width:' + (g/pj*100) + '%"></i>' +
+        '<i class="be" style="width:' + (e/pj*100) + '%"></i>' +
+        '<i class="bv" style="width:' + (p/pj*100) + '%"></i>' +
+      "</div>" +
+      '<div class="nota">' + pj + " partidos: " + g + " ganados, " + e + " empatados, " + p + " perdidos · " +
+      num(gf/pj,1) + " goles a favor y " + num(gc/pj,1) + " en contra por partido</div></div>";
+  }
+
+  function bloqueForma(liga, iEq, nombre){
+    var r = recientes(liga, iEq, 6), t = tendencias(liga, iEq, 10), s = "", k;
+    for (k = 0; k < r.length; k++){
+      var m = r[k];
+      s += '<span class="' + m.res + '" title="' + esc(fechaCorta(m.fecha) + " " + (m.casa ? "vs " : "en ") + m.rival + " " + m.gf + "-" + m.gc) + '">' + m.gf + "-" + m.gc + "</span>";
+    }
+    var racha = "";
+    if (t.rachaLargo > 1) racha = t.rachaLargo + (t.racha === "g" ? " victorias" : (t.racha === "e" ? " empates" : " derrotas")) + " seguidas";
+    else if (t.sinPerder > 1) racha = t.sinPerder + " partidos sin perder";
+    return '<div style="margin-bottom:11px"><div style="font-family:var(--display);font-size:15px;font-weight:600">' + esc(nombre) + "</div>" +
+      '<div class="form" style="margin:4px 0 4px">' + (s || '<span class="e">—</span>') + "</div>" +
+      '<div class="nota">' + (t.pj
+        ? "Últimos " + t.pj + ": " + t.g + "-" + t.e + "-" + t.p + " · " + num(t.gf/t.pj,1) + " goles a favor, " +
+          num(t.gc/t.pj,1) + " en contra · " + Math.round(t.over/t.pj*100) + "% con más de 2.5 goles · " +
+          Math.round(t.e/t.pj*100) + "% de empates · " + t.cero + " sin recibir gol" + (racha ? " · " + racha : "")
+        : "sin partidos en el dataset") + "</div></div>";
+  }
+
+  function bloqueH2H(liga, iL, iV, nomL, nomV){
+    var hs = historial(liga, iL, iV, 6), k, s = "", gl = 0, e = 0, gv = 0;
+    if (!hs.length) return '<p class="nota">No se han enfrentado en las temporadas que trae el dataset.</p>';
+    for (k = 0; k < hs.length; k++){
+      var p = hs[k], casaL = p[1] === iL;
+      var golL = casaL ? p[3] : p[4], golV = casaL ? p[4] : p[3];
+      if (golL > golV) gl++; else if (golL === golV) e++; else gv++;
+      s += '<div class="r"><span class="f">' + fechaCorta(p[0]) + "</span>" +
+           '<span>' + esc(liga.equipos[p[1]]) + " " + p[3] + "-" + p[4] + " " + esc(liga.equipos[p[2]]) + "</span>" +
+           '<span class="nota">' + (casaL ? "en casa" : "de visita") + "</span></div>";
+    }
+    return '<div class="h2h">' + s + "</div>" +
+      '<p class="nota" style="margin-top:8px">' + hs.length + " enfrentamientos: " + gl + " de " + esc(nomL) +
+      ", " + e + " empates, " + gv + " de " + esc(nomV) + ".</p>";
+  }
+
+  /* ---------- analisis de la jornada ---------- */
+
+  function pintarAnalisis(){
+    var c = cuentas(), i;
+    var fijas = 0, dudosas = 0, valor = 0;
+    for (i = 0; i < c.listos.length; i++){
+      var a = c.listos[i].a, s = senal(a);
+      if (s === "fija") fijas++;
+      if (s === "doble" || s === "triple") dudosas++;
+      if (a.mercado && a.modelo && Math.abs(a.modelo[a.mejor] - a.mercado[a.mejor]) >= 0.08) valor++;
+    }
+    $("resumen-analisis").innerHTML =
+      tile("Aciertos esperados", c.listos.length ? num(c.esperados,1) : "—", "de " + c.listos.length + " partidos") +
+      tile("Pegarle a todas", textoProb(c.todas), c.comb + " quiniela" + (c.comb === 1 ? "" : "s")) +
+      tile("Fijas", String(fijas), "favorito claro") +
+      tile("Parejos", String(dudosas), "candidatos a doble o triple");
+    $("nota-precio").textContent = c.comb + " quiniela" + (c.comb === 1 ? "" : "s") + " × " + pesos(PRECIO) + " = " + pesos(c.comb*PRECIO);
+    $("aviso-analisis").textContent = valor
+      ? valor + " partido" + (valor === 1 ? "" : "s") + " donde el modelo se aleja del mercado más de 8 puntos: ahí es donde puedes ganarle a la mayoría, o equivocarte feo."
+      : "El modelo y el mercado van de acuerdo en toda la jornada.";
+
+    var h = "<thead><tr>" +
+      '<th class="izq">#</th><th class="izq">Partido</th>' +
+      "<th>L</th><th>E</th><th>V</th><th>Marca</th><th>Margen</th>" +
+      "<th>Forma local</th><th>Forma visita</th><th>Empates</th><th>+2.5</th><th>vs mercado</th><th>Señal</th><th>Juego</th>" +
+      "</tr></thead><tbody>";
+
+    for (i = 0; i < filas.length; i++){
+      var f = filas[i], an = analizar(f);
+      if (!an){
+        h += '<tr><td class="izq n">' + (i+1) + '</td><td class="izq" colspan="13"><span class="nota">fila vacía</span></td></tr>';
+        continue;
+      }
+      var tipo = f.tipo || 1, sen = senal(an);
+      var dif = (an.mercado && an.modelo) ? (an.modelo[an.mejor] - an.mercado[an.mejor]) : null;
+      h += "<tr>" +
+        '<td class="izq n">' + (i+1) + (f.revancha ? "R" : "") + "</td>" +
+        '<td class="izq"><div class="eqs">' + esc(nombreLocal(f)) + " <span style='font-family:var(--texto);font-size:12px;color:var(--suave)'>vs</span> " + esc(nombreVisita(f)) + "</div>" +
+          '<div class="liga-mini">' + (an.liga ? esc(an.liga.nombre) : "solo momios") +
+          (f.fecha ? " · " + fechaCorta(f.fecha) : "") + "</div></td>" +
+        '<td class="n' + (an.orden[0] === 0 ? " gl" : "") + '">' + pct(an.final[0]) + "</td>" +
+        '<td class="n' + (an.orden[0] === 1 ? " ge" : "") + '">' + pct(an.final[1]) + "</td>" +
+        '<td class="n' + (an.orden[0] === 2 ? " gv" : "") + '">' + pct(an.final[2]) + "</td>" +
+        '<td class="n"><b>' + marcasDe(an, tipo).join("/") + "</b></td>" +
+        '<td class="n">' + num(an.margen*100, 0) + "</td>" +
+        "<td>" + (an.liga ? miniForma(an.liga, an.iL) : "—") + "</td>" +
+        "<td>" + (an.liga ? miniForma(an.liga, an.iV) : "—") + "</td>" +
+        '<td class="n">' + pct(an.final[1]) + "</td>" +
+        '<td class="n">' + (an.over === null ? "—" : pct(an.over)) + "</td>" +
+        '<td class="n">' + (dif === null ? "—" : (dif > 0 ? "+" : "") + num(dif*100, 1)) + "</td>" +
+        '<td><span class="etq ' + sen + '">' + sen + "</span></td>" +
+        '<td><select class="tipo" data-tipo="' + i + '">' +
+          '<option value="1"' + (tipo===1?" selected":"") + ">1</option>" +
+          '<option value="2"' + (tipo===2?" selected":"") + ">2</option>" +
+          '<option value="3"' + (tipo===3?" selected":"") + ">3</option>" +
+        "</select></td></tr>";
+    }
+    h += "</tbody>";
+    $("tabla-jornada").innerHTML = h;
+
+    var sels = document.querySelectorAll("select[data-tipo]");
+    for (i = 0; i < sels.length; i++){
+      (function(sel){
+        sel.addEventListener("change", function(){
+          filas[parseInt(sel.getAttribute("data-tipo"), 10)].tipo = parseInt(sel.value, 10);
+          guardar(); pintarAnalisis(); pintarResumen(); pintarFilas();
+        });
+      })(sels[i]);
+    }
+  }
+
+  function miniForma(liga, iEq){
+    var r = recientes(liga, iEq, 5), s = "", k;
+    for (k = r.length - 1; k >= 0; k--) s += '<i class="' + r[k].res + '" title="' + esc(r[k].gf + "-" + r[k].gc + " " + (r[k].casa ? "vs " : "en ") + r[k].rival) + '"></i>';
+    return '<span class="mini-form">' + (s || "—") + "</span>";
+  }
+
+  function repartir(maxComb){
+    var i, c, mejor, mejorGana, comb = 1, listos = [], rev = hayRevanchas();
+    for (i = 0; i < filas.length; i++){
+      filas[i].tipo = 1;
+      if (rev && filas[i].revancha) continue;
+      var a = analizar(filas[i]);
+      if (a) listos.push({ i:i, a:a });
+    }
+    while (true){
+      mejor = null; mejorGana = 1.0000001;
+      for (c = 0; c < listos.length; c++){
+        var t = filas[listos[c].i].tipo;
+        if (t >= 3) continue;
+        if (comb*(t+1)/t > maxComb + 0.0001) continue;
+        var gana = pFila(listos[c].a, t+1) / pFila(listos[c].a, t);
+        if (gana > mejorGana){ mejorGana = gana; mejor = listos[c]; }
+      }
+      if (!mejor) break;
+      var t0 = filas[mejor.i].tipo;
+      filas[mejor.i].tipo = t0 + 1;
+      comb = comb*(t0+1)/t0;
+    }
+  }
+
+  /* ---------- ligas ---------- */
+
+  function pintarLigas(){
+    var sel = $("sel-liga");
+    if (!sel.options.length){
+      var ligasOrden = D.ligas.slice().sort(function(x,y){
+        return (x.pais + x.nombre).localeCompare(y.pais + y.nombre, "es");
+      }), k, o = "";
+      for (k = 0; k < ligasOrden.length; k++)
+        o += '<option value="' + ligasOrden[k].id + '">' + esc(ligasOrden[k].pais + " · " + ligasOrden[k].nombre) + "</option>";
+      sel.innerHTML = o;
+      if (!ligaVista) ligaVista = "MEX";
+      sel.value = ligaVista;
+    }
+    var liga = LIGAS[sel.value] || LIGAS[ligaVista];
+    if (!liga) return;
+    ligaVista = liga.id;
+
+    var aj = ajustar(liga), tb = tablaLiga(liga, liga.temporadas.length - 1), i;
+    var dias = Math.round((Date.now() - Date.parse(aj.ultima + "T12:00:00Z")) / 86400000);
+    $("nota-liga").textContent = "Temporada " + tb.temporada + " · " + liga.partidos.length +
+      " partidos en el dataset · último hace " + dias + " día" + (dias === 1 ? "" : "s");
+
+    var h = "<thead><tr>" +
+      '<th class="izq">#</th><th class="izq">Equipo</th>' +
+      "<th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DIF</th><th>PTS</th>" +
+      "<th>En casa</th><th>De visita</th><th>Ataque</th><th>Defensa</th>" +
+      "</tr></thead><tbody>";
+    for (i = 0; i < tb.filas.length; i++){
+      var t = tb.filas[i];
+      h += "<tr>" +
+        '<td class="izq pos">' + (i+1) + "</td>" +
+        '<td class="izq eq">' + esc(t.nombre) + "</td>" +
+        '<td class="n">' + t.pj + '</td><td class="n">' + t.g + '</td><td class="n">' + t.e + '</td><td class="n">' + t.p + "</td>" +
+        '<td class="n">' + t.gf + '</td><td class="n">' + t.gc + '</td><td class="n">' + (t.gf - t.gc > 0 ? "+" : "") + (t.gf - t.gc) + "</td>" +
+        '<td class="n"><b>' + t.pts + "</b></td>" +
+        '<td class="n">' + t.cg + "-" + t.ce + "-" + t.cp + "</td>" +
+        '<td class="n">' + t.vg + "-" + t.ve + "-" + t.vp + "</td>" +
+        '<td class="n">' + num(aj.atk[t.i]) + '</td><td class="n">' + num(aj.def[t.i]) + "</td>" +
+        "</tr>";
+    }
+    h += "</tbody>";
+    $("tabla-posiciones").innerHTML = h;
+  }
+
+  /* ---------- eventos ---------- */
+
+  function conectar(i){
+    var li = document.querySelector('li.fila[data-i="' + i + '"]');
+    if (!li) return;
+    li.querySelector('[data-act="abrir"]').addEventListener("click", function(){
+      abierta = (abierta === i) ? -1 : i;
+      pintarFilas();
+      if (abierta === i){
+        var el = document.querySelector('li.fila[data-i="' + i + '"]');
+        if (el) el.scrollIntoView({ block:"nearest", behavior:"smooth" });
+      }
+    });
+    if (abierta !== i) return;
+
+    var sl = li.querySelector('[data-act="liga"]');
+    var sh = li.querySelector('[data-act="local"]');
+    var sa = li.querySelector('[data-act="visita"]');
+    var st = li.querySelector('[data-act="tipo"]');
+    if (sl) sl.addEventListener("change", function(){
+      filas[i] = { liga:sl.value, local:"", visita:"", cuotas:null, tipo:filas[i].tipo || 1 };
+      guardar(); todo();
+    });
+    if (sh) sh.addEventListener("change", function(){
+      filas[i].local = sh.value; filas[i].cuotas = null; filas[i].ejemplo = false;
+      guardar(); todo();
+    });
+    if (sa) sa.addEventListener("change", function(){
+      filas[i].visita = sa.value; filas[i].cuotas = null; filas[i].ejemplo = false;
+      guardar(); todo();
+    });
+    if (st) st.addEventListener("change", function(){
+      filas[i].tipo = parseInt(st.value, 10); guardar(); todo();
+    });
+    li.querySelector('[data-act="voltear"]').addEventListener("click", function(){
+      var t = filas[i].local; filas[i].local = filas[i].visita; filas[i].visita = t;
+      if (filas[i].cuotas) filas[i].cuotas = [filas[i].cuotas[2], filas[i].cuotas[1], filas[i].cuotas[0]];
+      guardar(); todo();
+    });
+    li.querySelector('[data-act="borrar"]').addEventListener("click", function(){
+      filas.splice(i, 1); abierta = -1; guardar(); todo();
+    });
+  }
+
+  function todo(){
+    pintarFilas(); pintarResumen();
+    if (vista === "analisis") pintarAnalisis();
+    if (vista === "ligas") pintarLigas();
+  }
+
+  function cambiarVista(v){
+    vista = v;
+    var mapa = { boleto:"tab-boleto", analisis:"tab-analisis", ligas:"tab-ligas" };
+    for (var k in mapa){
+      $(mapa[k]).setAttribute("aria-selected", k === v ? "true" : "false");
+      $("vista-" + k).hidden = (k !== v);
+    }
+    if (v === "analisis") pintarAnalisis();
+    if (v === "ligas") pintarLigas();
+  }
+
+  function guardar(){
+    try { localStorage.setItem(LLAVE, JSON.stringify({ filas:filas, mezclar:mezclar })); } catch(e){}
+  }
+  function cargarGuardado(){
+    try {
+      var o = JSON.parse(localStorage.getItem(LLAVE) || "null");
+      if (o && o.filas && o.filas.length){ mezclar = o.mezclar !== false; return o.filas; }
+    } catch(e){}
+    return null;
+  }
+
+  // La jornada de Progol tal como viene programada: 14 partidos + 7 de revancha.
+  function cargarJornada(){
+    if (!D.jornada || !D.jornada.partidos || !D.jornada.partidos.length) return null;
+    var out = [], k;
+    for (k = 0; k < D.jornada.partidos.length; k++){
+      var p = D.jornada.partidos[k];
+      out.push({
+        liga:p.liga || "", local:p.local || "", visita:p.visita || "",
+        txtL:p.txtLocal, txtV:p.txtVisita, cuotas:p.cuotas,
+        revancha:!!p.revancha, tipo:1
+      });
+    }
+    return out;
+  }
+
+  function cargarProximos(){
+    var nuevas = [], k;
+    for (k = 0; k < D.proximos.length && nuevas.length < 14; k++){
+      var p = D.proximos[k], liga = LIGAS[p.liga];
+      if (!liga) continue;
+      if (liga.equipos.indexOf(p.local) < 0 || liga.equipos.indexOf(p.visita) < 0) continue;
+      nuevas.push({ liga:p.liga, local:p.local, visita:p.visita, fecha:p.fecha, hora:p.hora, cuotas:p.cuotas, tipo:1 });
+    }
+    return nuevas;
+  }
+
+  // Partidos de ejemplo por si el archivo de proximos trae menos de 14.
+  var EJEMPLOS = [
+    ["MEX","Club America","Cruz Azul"], ["MEX","Guadalajara Chivas","Tigres UANL"],
+    ["MEX","Monterrey","Toluca"], ["MEX","Pachuca","UNAM Pumas"],
+    ["E0","Arsenal","Liverpool"], ["E0","Man City","Chelsea"],
+    ["SP1","Real Madrid","Barcelona"], ["SP1","Ath Madrid","Sevilla"],
+    ["I1","Inter","Juventus"], ["I1","Milan","Napoli"],
+    ["D1","Bayern Munich","Dortmund"], ["D1","Leverkusen","RB Leipzig"],
+    ["F1","Paris SG","Marseille"], ["N1","Ajax","Feyenoord"],
+    ["P1","Benfica","Porto"], ["T1","Galatasaray","Fenerbahce"]
+  ];
+
+  function rellenarEjemplos(lista){
+    var k, j;
+    for (k = 0; k < EJEMPLOS.length && lista.length < 14; k++){
+      var e = EJEMPLOS[k], liga = LIGAS[e[0]];
+      if (!liga || liga.equipos.indexOf(e[1]) < 0 || liga.equipos.indexOf(e[2]) < 0) continue;
+      var repetido = false;
+      for (j = 0; j < lista.length; j++) if (lista[j].local === e[1] && lista[j].visita === e[2]) repetido = true;
+      if (repetido) continue;
+      lista.push({ liga:e[0], local:e[1], visita:e[2], cuotas:null, ejemplo:true, tipo:1 });
+    }
+    while (lista.length < 14) lista.push(filaVacia());
+    return lista;
+  }
+
+  function textoQuiniela(){
+    var c = cuentas();
+    var lin = ["QUINIELA — " + new Date().toLocaleDateString("es-MX"), ""], i;
+    for (i = 0; i < filas.length; i++){
+      var a = analizar(filas[i]), n = String(i + 1);
+      while (n.length < 2) n = " " + n;
+      if (!a){ lin.push(n + "  —"); continue; }
+      lin.push(n + "  " + marcasDe(a, filas[i].tipo || 1).join("/") + "  " +
+        nombreLocal(filas[i]) + " vs " + nombreVisita(filas[i]) +
+        "  (" + pct(a.final[0]) + " / " + pct(a.final[1]) + " / " + pct(a.final[2]) + ")");
+    }
+    lin.push("");
+    lin.push(c.comb + " quiniela(s) · " + pesos(c.comb*PRECIO) + " · pegarle a todas: " + textoProb(c.todas));
+    return lin.join("\n");
+  }
+
+  function copiar(){
+    var txt = textoQuiniela(), btn = $("btn-copiar"), antes = btn.textContent;
+    function ok(){ btn.textContent = "Copiada"; setTimeout(function(){ btn.textContent = antes; }, 1600); }
+    function falla(){
+      var ta = document.createElement("textarea");
+      ta.value = txt; ta.style.position = "fixed"; ta.style.top = "-200px";
+      document.body.appendChild(ta); ta.select();
+      btn.textContent = "Selecciónala y copia con Ctrl+C";
+      setTimeout(function(){ document.body.removeChild(ta); btn.textContent = antes; }, 4000);
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, falla);
+      else falla();
+    } catch(e){ falla(); }
+  }
+
+  /* ---------- arranque ---------- */
+
+  fetch("datos.json").then(function(r){
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }).then(function(datos){
+    D = datos;
+    var k;
+    for (k = 0; k < D.ligas.length; k++) LIGAS[D.ligas[k].id] = D.ligas[k];
+
+    var gen = D.generado.replace("T", " ").slice(0, 16);
+    $("sello").innerHTML =
+      (D.jornada && D.jornada.numero
+        ? "quiniela <b>Progol " + esc(D.jornada.numero) + "</b>" +
+          (D.jornada.fecha ? " · " + esc(D.jornada.fecha) : "") + "<br>"
+        : "") +
+      "<b>" + D.total_partidos.toLocaleString("es-MX") + "</b> partidos · <b>" + D.ligas.length + "</b> ligas<br>" +
+      "datos al <b>" + gen + "</b>";
+    if (D.jornada && D.jornada.numero) $("btn-jornada").textContent = "Cargar Progol " + D.jornada.numero;
+    else $("btn-jornada").hidden = true;
+    $("metodo-jornada").innerHTML = D.jornada && D.jornada.numero
+      ? "La página abre con el <b>concurso " + esc(D.jornada.numero) + "</b> ya puesto: los 14 partidos y las 7 revanchas " +
+        "tal como vienen programados" + (D.jornada.fecha ? ", con fecha " + esc(D.jornada.fecha) : "") +
+        ", con sus momios. Se actualiza cada vez que corres el script, sin capturar nada a mano."
+      : "No se pudo leer la jornada programada la última vez que se corrió el script; la página abre con los próximos partidos del dataset.";
+    $("metodo-datos").innerHTML = "Temporadas " + D.temporadas.join(" y ") + ": <b>" +
+      D.total_partidos.toLocaleString("es-MX") + "</b> partidos de <b>" + D.ligas.length +
+      "</b> ligas, incluidas Liga MX, MLS, Premier League, LaLiga, Serie A, Bundesliga, Ligue 1, Argentina y Brasil. Generado el " + gen + ".";
+
+    filas = cargarGuardado() || cargarJornada() || rellenarEjemplos(cargarProximos());
+    for (k = 0; k < filas.length; k++) if (!filas[k].tipo) filas[k].tipo = 1;
+    $("chk-mercado").checked = mezclar;
+    todo();
+  }).catch(function(err){
+    $("filas").innerHTML = '<li class="cargando">No se pudieron cargar los datos (' + esc(err.message) +
+      "). Corre <code>python quiniela/generar_datos.py</code> y vuelve a publicar la página.</li>";
+    $("sello").textContent = "Sin datos";
+  });
+
+  $("tab-boleto").addEventListener("click", function(){ cambiarVista("boleto"); });
+  $("tab-analisis").addEventListener("click", function(){ cambiarVista("analisis"); });
+  $("tab-ligas").addEventListener("click", function(){ cambiarVista("ligas"); });
+
+  $("btn-jornada").addEventListener("click", function(){
+    var j = cargarJornada();
+    if (!j) return;
+    filas = j; abierta = -1; guardar(); todo();
+  });
+  $("btn-proximos").addEventListener("click", function(){
+    filas = rellenarEjemplos(cargarProximos());
+    abierta = -1; guardar(); todo();
+  });
+  $("btn-agregar").addEventListener("click", function(){
+    if (filas.length >= 21) return;
+    filas.push(filaVacia()); abierta = filas.length - 1; guardar(); todo();
+  });
+  $("btn-limpiar").addEventListener("click", function(){
+    filas = []; var k;
+    for (k = 0; k < 14; k++) filas.push(filaVacia());
+    abierta = -1; guardar(); todo();
+  });
+  $("btn-copiar").addEventListener("click", copiar);
+  $("chk-mercado").addEventListener("change", function(){
+    mezclar = $("chk-mercado").checked; guardar(); todo();
+  });
+  $("btn-repartir").addEventListener("click", function(){
+    repartir(parseInt($("sel-presupuesto").value, 10));
+    guardar(); pintarAnalisis(); pintarResumen(); pintarFilas();
+  });
+  $("btn-sencillas").addEventListener("click", function(){
+    for (var k = 0; k < filas.length; k++) filas[k].tipo = 1;
+    guardar(); pintarAnalisis(); pintarResumen(); pintarFilas();
+  });
+  $("sel-liga").addEventListener("change", function(){ ligaVista = $("sel-liga").value; pintarLigas(); });
+})();
+</script>
