@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Arma quiniela/web/, la carpeta que se publica en Vercel.
+Arma web/, la carpeta que se publica en Vercel.
 
 index.html esta escrito para el formato de artifact, que le pone por su cuenta
 el <!doctype html> y la cabecera. Servido tal cual desde Vercel el navegador lo
 abriria en modo quirks, asi que aqui se le pone ese envoltorio y se copia
 datos.json al lado.
 
-    python quiniela/preparar_vercel.py
+    python preparar_vercel.py
 
 Flujo de cada semana:
-    python quiniela/generar_datos.py      (baja datos y la jornada nueva)
-    python quiniela/preparar_vercel.py    (arma web/)
-    git add quiniela/web && git commit && git push   (Vercel se redespliega solo)
+    python generar_datos.py      (baja datos y la jornada nueva)
+    python preparar_vercel.py    (arma web/)
+    git add web && git commit && git push   (Vercel se redespliega solo)
 """
 
 import os
@@ -37,7 +37,7 @@ def main():
     for ruta in (ORIGEN, DATOS):
         if not os.path.exists(ruta):
             print("Falta %s" % ruta)
-            print("Corre primero:  python quiniela/generar_datos.py")
+            print("Corre primero:  python generar_datos.py")
             return 1
 
     with open(ORIGEN, "r", encoding="utf-8") as f:

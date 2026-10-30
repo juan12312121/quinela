@@ -12,7 +12,7 @@ los limpia y los deja en quiniela/datos.json con esta forma:
 }
 
 Para refrescar antes de llenar la quiniela:
-    python quiniela/generar_datos.py
+    python generar_datos.py
 """
 
 import csv

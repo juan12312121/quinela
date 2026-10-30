@@ -46,7 +46,7 @@ sin capturar nada a mano.
 ## Refrescar los datos antes de la jornada
 
 ```
-python quiniela/generar_datos.py
+python generar_datos.py
 ```
 
 Tarda alrededor de un minuto. Después hay que volver a publicar la página para que
@@ -76,7 +76,7 @@ Las constantes están hasta arriba del `<script>` en `index.html`:
 
 ## Publicar en Vercel
 
-`python quiniela/preparar_vercel.py` arma `quiniela/web/` (index.html con su
+`python preparar_vercel.py` arma `web/` (index.html con su
 `<!doctype>` + datos.json + vercel.json). En Vercel: importar el repo, poner
-**Root Directory = `quiniela/web`**, framework *Other*, sin build command.
+**Root Directory = `web`**, framework *Other*, sin build command.
 Cada semana: `generar_datos.py`, `preparar_vercel.py`, commit y push.

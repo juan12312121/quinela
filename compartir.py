@@ -6,7 +6,7 @@ A diferencia de abrir_quiniela.bat (que solo la deja ver en esta PC), este
 escucha en todas las interfaces, asi que cualquiera en la misma red entra con
 http://<ip-de-esta-pc>:8777/
 
-    python quiniela/compartir.py
+    python compartir.py
 
 Deja la ventana abierta: es el servidor. Al cerrarla se cae la pagina.
 """
